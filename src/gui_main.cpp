@@ -22,7 +22,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstring>
+#include <fstream>
 #include <future>
 #include <string>
 #include <vector>
@@ -36,6 +38,52 @@
 namespace {
 
 constexpr int kPorPagina = 5; // el enunciado pide 5 resultados por pagina
+
+// --- Tamano de la interfaz -------------------------------------------------
+// Tamano de la letra en pixeles logicos. Se multiplica por el escalado de la
+// pantalla (125 %, 150 %... en Windows) y por el zoom (Ctrl + / Ctrl -).
+constexpr float kLetraBase = 17.0f;
+
+// Las medidas fijas del diseno (anchos de casillas) estan pensadas para la
+// letra de 13 px de ImGui; px() las adapta al tamano de letra actual.
+float px(float v) { return v * ImGui::GetFontSize() / 13.0f; }
+
+// Carga una fuente legible del sistema (Segoe UI en Windows) con tildes y enie;
+// si no encuentra ninguna, usa la fuente de ImGui agrandada.
+void cargarFuente(float tam) {
+  ImGuiIO &io = ImGui::GetIO();
+  io.Fonts->Clear();
+  static const ImWchar rangos[] = {0x0020, 0x00FF, 0}; // ASCII + Latin-1
+  const char *candidatas[] = {
+      "C:/Windows/Fonts/segoeui.ttf",
+      "/System/Library/Fonts/Supplemental/Arial.ttf",
+      "/Library/Fonts/Arial.ttf",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+      "/usr/share/fonts/TTF/DejaVuSans.ttf"};
+  ImFont *fuente = nullptr;
+  for (const char *ruta : candidatas) {
+    if (std::ifstream(ruta).good()) {
+      fuente = io.Fonts->AddFontFromFileTTF(ruta, tam, nullptr, rangos);
+      if (fuente) break;
+    }
+  }
+  if (!fuente) {
+    ImFontConfig cfg;
+    cfg.SizePixels = tam;
+    io.Fonts->AddFontDefault(&cfg);
+  }
+  io.Fonts->Build();
+}
+
+void aplicarEstilo(float escala) {
+  ImGui::GetStyle() = ImGuiStyle();
+  ImGui::StyleColorsDark();
+  ImGuiStyle &st = ImGui::GetStyle();
+  st.FrameRounding = 4.0f;
+  st.ChildRounding = 4.0f;
+  st.TabRounding = 4.0f;
+  st.ScaleAllSizes(escala);
+}
 
 const ImVec4 kAzul(0.30f, 0.85f, 1.00f, 1.0f);
 const ImVec4 kAmarillo(0.95f, 0.80f, 0.30f, 1.0f);
@@ -88,8 +136,18 @@ int main(int argc, char **argv) {
 #ifdef __APPLE__
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
+  // Escalado de la pantalla (1.0 = 100 %, 1.5 = 150 %...). En pantallas de alta
+  // resolucion sin esto todo se ve diminuto.
+  float escalaPantalla = 1.0f;
+  {
+    float ex = 1.0f, ey = 1.0f;
+    glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &ex, &ey);
+    if (ex > 0.5f) escalaPantalla = ex;
+  }
+  glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
   GLFWwindow *ventana = glfwCreateWindow(
-      1320, 840, "UTEC Stream - CS2013 Programacion III", nullptr, nullptr);
+      static_cast<int>(1320 * escalaPantalla), static_cast<int>(840 * escalaPantalla),
+      "UTEC Stream - CS2013 Programacion III", nullptr, nullptr);
   if (!ventana) {
     glfwTerminate();
     return 1;
@@ -99,8 +157,17 @@ int main(int argc, char **argv) {
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
-  ImGui::StyleColorsDark();
   ImGui::GetIO().IniFilename = nullptr; // no ensuciar la carpeta con imgui.ini
+
+  // Zoom: Ctrl + / Ctrl - / Ctrl 0, Ctrl + rueda del mouse, o botones A- / A+.
+  float zoom = 1.0f;
+  bool reconstruirFuente = false;
+  auto ajustarTamano = [&]() {
+    cargarFuente(std::round(kLetraBase * escalaPantalla * zoom));
+    aplicarEstilo(escalaPantalla * zoom);
+  };
+  ajustarTamano();
+
   ImGui_ImplGlfw_InitForOpenGL(ventana, true);
   ImGui_ImplOpenGL3_Init("#version 330");
 
@@ -326,7 +393,7 @@ int main(int argc, char **argv) {
     ImGui::TextColored(kAmarillo, "SINOPSIS");
     const float altoSimilares = 7.5f * ImGui::GetTextLineHeightWithSpacing();
     ImGui::BeginChild("sinopsis",
-                      ImVec2(0, std::max(120.0f, ImGui::GetContentRegionAvail().y -
+                      ImVec2(0, std::max(px(120.0f), ImGui::GetContentRegionAvail().y -
                                                      altoSimilares)),
                       true);
     ImGui::TextWrapped("%s", p.sinopsis.c_str());
@@ -365,9 +432,34 @@ int main(int argc, char **argv) {
   // ===========================================================================
   while (!glfwWindowShouldClose(ventana)) {
     glfwPollEvents();
+    if (reconstruirFuente) {
+      // La fuente se vuelve a generar al nuevo tamano (en vez de estirarla),
+      // asi el texto se ve nitido con cualquier zoom.
+      ajustarTamano();
+      ImGui_ImplOpenGL3_DestroyFontsTexture();
+      ImGui_ImplOpenGL3_CreateFontsTexture();
+      reconstruirFuente = false;
+    }
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    // Atajos de zoom
+    {
+      const ImGuiIO &io = ImGui::GetIO();
+      float z = zoom;
+      if (io.KeyCtrl) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Equal) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd)) z += 0.1f;
+        if (ImGui::IsKeyPressed(ImGuiKey_Minus) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract)) z -= 0.1f;
+        if (ImGui::IsKeyPressed(ImGuiKey_0) || ImGui::IsKeyPressed(ImGuiKey_Keypad0)) z = 1.0f;
+        if (io.MouseWheel != 0.0f) z += 0.1f * io.MouseWheel;
+      }
+      z = std::clamp(z, 0.6f, 2.5f);
+      if (std::fabs(z - zoom) > 0.01f) {
+        zoom = z;
+        reconstruirFuente = true;
+      }
+    }
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
@@ -414,7 +506,18 @@ int main(int argc, char **argv) {
                         motor.catalogo().tamano(),
                         motor.indice().vocabulario().numTerminos(),
                         pf::resolverHilos(0));
-    ImGui::SameLine(ImGui::GetWindowWidth() - 230);
+    ImGui::SameLine(ImGui::GetWindowWidth() - px(300));
+    if (ImGui::SmallButton("A-")) {
+      zoom = std::max(0.6f, zoom - 0.1f);
+      reconstruirFuente = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("A+")) {
+      zoom = std::min(2.5f, zoom + 0.1f);
+      reconstruirFuente = true;
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Zoom: Ctrl + / Ctrl - / Ctrl 0");
+    ImGui::SameLine();
     ImGui::BeginDisabled(!historial.hayHistorial());
     if (ImGui::Button("Deshacer (Memento)")) {
       gestorEstado.restaurarEstado(historial.getEstadoAnterior());
@@ -468,7 +571,7 @@ int main(int argc, char **argv) {
       // BUSCAR: Builder + autocompletado (Trie) + rango (AVL) + 5 en 5
       // -----------------------------------------------------------------------
       if (ImGui::BeginTabItem("Buscar")) {
-        ImGui::SetNextItemWidth(420);
+        ImGui::SetNextItemWidth(px(420));
         if (ImGui::InputTextWithHint("##texto", "Palabra, frase o sub-palabra...",
                                      bufTexto, sizeof(bufTexto),
                                      ImGuiInputTextFlags_EnterReturnsTrue)) {
@@ -530,19 +633,19 @@ int main(int argc, char **argv) {
         }
 
         // Filtros por etiqueta (se combinan con el PATRON BUILDER)
-        ImGui::SetNextItemWidth(170);
+        ImGui::SetNextItemWidth(px(170));
         ImGui::InputTextWithHint("##dir", "Director", bufDirector, sizeof(bufDirector));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(170);
+        ImGui::SetNextItemWidth(px(170));
         ImGui::InputTextWithHint("##rep", "Reparto", bufReparto, sizeof(bufReparto));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(130);
+        ImGui::SetNextItemWidth(px(130));
         ImGui::InputTextWithHint("##gen", "Genero", bufGenero, sizeof(bufGenero));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(130);
+        ImGui::SetNextItemWidth(px(130));
         ImGui::InputTextWithHint("##ori", "Origen", bufOrigen, sizeof(bufOrigen));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(90);
+        ImGui::SetNextItemWidth(px(90));
         ImGui::InputInt("Anio exacto", &filtroAnio, 0);
         if (filtroAnio < 0) filtroAnio = 0;
 
@@ -550,7 +653,7 @@ int main(int argc, char **argv) {
         ImGui::Checkbox("Filtrar por rango de anios (Arbol AVL)", &usarRangoAvl);
         ImGui::SameLine();
         ImGui::BeginDisabled(!usarRangoAvl);
-        ImGui::SetNextItemWidth(260);
+        ImGui::SetNextItemWidth(px(260));
         ImGui::SliderInt2("##rango", rangoAvl, 1900, 2017);
         ImGui::EndDisabled();
         ImGui::Separator();

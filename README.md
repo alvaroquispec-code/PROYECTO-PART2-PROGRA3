@@ -885,6 +885,10 @@ Detalles de implementación:
   frame.
 * El autocompletado pide al `TriePrefijos` las palabras con ese prefijo y
   muestra las 6 que aparecen en más películas.
+* El tamaño se adapta al escalado de la pantalla (125 %, 150 %… en Windows) y
+  usa una fuente del sistema (Segoe UI en Windows). Para el proyector hay zoom
+  con **Ctrl +** / **Ctrl −** / **Ctrl 0**, **Ctrl + rueda del mouse** o los
+  botones **A− / A+** de arriba a la derecha.
 
 ![Inicio](docs/capturas/inicio.png)
 
