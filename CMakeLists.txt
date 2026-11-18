@@ -51,10 +51,12 @@ if(CONSTRUIR_GUI)
 
   FetchContent_Declare(glfw
       GIT_REPOSITORY https://github.com/glfw/glfw.git
-      GIT_TAG 3.3.8)
+      GIT_TAG 3.3.8
+      GIT_SHALLOW TRUE)  # descarga solo esa version, no todo el historial
   FetchContent_Declare(imgui
       GIT_REPOSITORY https://github.com/ocornut/imgui.git
-      GIT_TAG v1.90.4)
+      GIT_TAG v1.90.4
+      GIT_SHALLOW TRUE)
   FetchContent_MakeAvailable(glfw imgui)
 
   add_library(imgui_lib STATIC

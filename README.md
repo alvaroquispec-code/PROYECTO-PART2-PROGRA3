@@ -31,7 +31,7 @@ externas**. La única biblioteca de terceros es la de la interfaz gráfica
 | **Árbol** (TriePrefijos, TrieSufijos y Árbol AVL) | `include/trie.hpp`, `src/trie.cpp`, `include/arbol_avl.hpp`, `src/arbol_avl.cpp` | [§3](#3-justificación-de-la-estructura-de-árbol), [§12.1](#121-árboles) |
 | **Programación paralela** en inserción y búsqueda de strings | `include/hilos.hpp`, `src/indice.cpp`, `src/buscador.cpp`, `src/paralelo.cpp` | [§12.3](#123-programación-paralela) |
 | **Interfaz gráfica** (Dear ImGui) | `src/gui_main.cpp` | [§12.4](#124-interfaz-gráfica) |
-| Pruebas de todo lo anterior | `tests/pruebas.cpp` (102 pruebas) | [§12.5](#125-pruebas) |
+| Pruebas de todo lo anterior | `tests/pruebas.cpp` (108 pruebas) | [§12.5](#125-pruebas) |
 
 ---
 
@@ -62,7 +62,7 @@ cmake --build build -j
 
 ./build/streaming_gui                     # interfaz gráfica
 ./build/streaming                         # interfaz de consola
-./build/pruebas                           # 102 pruebas
+./build/pruebas                           # 108 pruebas
 ./build/streaming --benchmark             # 1 hilo vs N hilos
 ```
 
@@ -202,12 +202,78 @@ struct Nodo {
 Con un arreglo de 36 punteros por nodo, los ~1.33 M de nodos costarían más de
 190 MB solo en punteros vacíos. Con lista de hermanos son **21 MB**. Como el
 alfabeto normalizado es `[a-z0-9]` (36 símbolos), recorrer la lista es O(36) en
-el peor caso y ~3 comparaciones en la práctica, porque la mayoría de los nodos
-tiene pocos hijos.
+el peor caso y ~4 comparaciones por letra en la práctica (medido). Ese costo se
+corrigió en la Parte 2 con nodos adaptativos (§3.6).
 
 Los nodos viven en un `std::vector` y se referencian por índice `int32_t` en
 lugar de punteros: la mitad de memoria en 64 bits y mucha mejor localidad de
 caché.
+
+### 3.6 Nodos adaptativos: lo que cuesta la lista de hermanos y cómo se corrigió
+
+En la exposición de la Parte 1 nos hicieron dos observaciones correctas:
+
+1. **No hace falta guardar 36 espacios por nodo.** Comparar contra un arreglo
+   de 36 no basta: las alternativas reales guardan solo los hijos que existen
+   (`std::map`, `std::unordered_map`, `std::vector` por nodo).
+2. **Bajar por la lista de hermanos es más lento.** Desde `h`, para llegar a
+   `e` hay que pasar por `i → o → e`; con un arreglo es un solo salto. Por eso
+   "palabra exacta en O(|palabra|)" no era cierto: con la lista es
+   O(|palabra| · σ), con σ = 36.
+
+Lo medimos con el vocabulario real (164 015 palabras, TriePrefijos):
+
+| Hijos de un nodo | 0 | 1 | 2 | 3 | 4+ |
+|---|---|---|---|---|---|
+| % de nodos | 30.2 % | **56.9 %** | 7.3 % | 2.4 % | 3.1 % |
+
+| Cómo se guardan los hijos | Memoria | Buscar una palabra |
+|---|---|---|
+| Arreglo de 36 por nodo | 57.1 MB | ~60–110 ns |
+| `std::unordered_map` por nodo | 59.1 MB | ~260–280 ns |
+| `std::map` por nodo | 37.1 MB | ~360–380 ns |
+| `std::vector<pair>` por nodo | 16.9 MB | ~180–220 ns |
+| Lista de hermanos (Parte 1) | 6.2 MB | ~210–235 ns |
+| **Nodos adaptativos (Parte 2)** | **7.9 MB** | **~60–90 ns** |
+
+*(Solo el TriePrefijos; la memoria de los contenedores no incluye el costo
+extra de cada `malloc`, que los perjudica aún más.)*
+
+Las dos observaciones tenían razón. La lista de hermanos es la que menos
+memoria usa: en un árbol de *n* nodos hay *n − 1* aristas, y cada nodo es
+apuntado por **un solo** enlace (su padre o su hermano anterior), sin
+reservas aparte. Pero el costo de recorrerla se concentra en **pocos nodos con
+muchos hijos**: la raíz tiene 36 y cuesta ~9.7 comparaciones en promedio,
+mientras que en los niveles profundos son ~1.7.
+
+**La corrección (nodos adaptativos, `trie.hpp`):** al terminar de construir,
+los nodos con **4 o más hijos** (el 3 %) reciben además una tabla de 36
+índices y saltan al hijo en O(1). El resto sigue con la lista, que tiene como
+máximo 3 elementos. El índice de la tabla se guarda en los 3 bytes de relleno
+que el nodo ya tenía, así que **el nodo sigue midiendo 16 bytes**.
+
+```cpp
+template <typename N>
+int32_t hijo(const std::vector<N> &nodos, const std::vector<TablaHijos> &tablas,
+             int32_t padre, unsigned char c) {
+  const int32_t d = indiceDenso(nodos[padre]);
+  if (d != 0) return tablas[d - 1][simbolo(c)];              // nodo denso: O(1)
+  for (int32_t h = nodos[padre].primerHijo; h != -1; h = nodos[h].hermano)
+    if (nodos[h].c == c) return h;                            // a lo sumo 3 hermanos
+  return -1;
+}
+```
+
+Resultado con el dataset completo: buscar una palabra en el trie pasó de
+~220 ns a ~80 ns (**~2.6x más rápido**), con 44 400 nodos densos entre los dos
+tries (+6.4 MB). Ahora la búsqueda de palabra exacta es **O(|palabra|)
+garantizado**. Los resultados de búsqueda son idénticos a los de antes, y
+hay 6 pruebas que lo verifican.
+
+Para ser honestos con la escala: bajar por el trie es una parte mínima de una
+consulta (~0.0001 ms de 1–9 ms); el resto es recorrer las listas de películas.
+La mejora corrige la complejidad del árbol, pero no cambia el tiempo de una
+consulta completa.
 
 ---
 
@@ -446,7 +512,8 @@ invalida el archivo.
 **Caché determinista.** Los nodos de los tries miden 16 bytes, pero solo 13 son
 datos; los 3 restantes eran relleno sin inicializar, así que dos ejecuciones
 producían archivos distintos en esos bytes. Ahora el relleno se inicializa en
-cero (`uint8_t relleno[3]` en `trie.hpp`), y el caché es idéntico byte a byte
+cero, y en la Parte 2 esos bytes pasaron a guardar el índice de los nodos
+densos (`uint8_t denso[3]`, §3.6). El caché es idéntico byte a byte
 entre ejecuciones y entre 1 y N hilos. Eso permite verificar el paralelismo con
 un simple `cmp`.
 
@@ -456,8 +523,8 @@ un simple `cmp`.
 
 | Operación | Complejidad | Nota |
 |---|---|---|
-| Insertar palabra en `TriePrefijos` | O(\|w\|·σ) | σ = 36, en la práctica ~3 |
-| Buscar palabra exacta | **O(\|w\|)** | independiente del tamaño del corpus |
+| Insertar palabra en `TriePrefijos` | O(\|w\|·σ) | σ = 36; se insertan todas antes de crear las tablas |
+| Buscar palabra exacta | **O(\|w\|)** | gracias a los nodos adaptativos (§3.6); antes era O(\|w\|·σ) |
 | Buscar por prefijo | O(\|P\| + nodos del subárbol) | |
 | Insertar palabra en `TrieSufijos` | O(\|w\|²) | \|w\| ≤ 24 por construcción |
 | Buscar por sub‑cadena | O(\|P\| + nodos del subárbol) | acotado a 3 000 términos |
@@ -525,7 +592,7 @@ Latencias por tipo de consulta:
 | Todo el programa en C++ | C++17; el motor sin dependencias, la GUI con Dear ImGui | ✅ |
 | Documentación en el repositorio | este README + `docs/capturas/` | ✅ |
 | Subir el programa a un repositorio en GitHub | este repositorio | ✅ |
-| Pruebas automatizadas | `tests/pruebas.cpp` (102 pruebas) | ✅ |
+| Pruebas automatizadas | `tests/pruebas.cpp` (108 pruebas) | ✅ |
 | **E2:** 4 patrones de diseño | `patrones.*`, §12.2 | ✅ |
 | **E2:** Árbol | `trie.*`, `arbol_avl.*`, §12.1 | ✅ |
 | **E2:** Programación paralela en inserción y búsqueda de strings | `hilos.hpp`, `indice.cpp`, `buscador.cpp`, `paralelo.*`, §12.3 | ✅ |
@@ -565,13 +632,17 @@ autocompletado; `TrieSufijos` resuelve la búsqueda por sub-palabra.
 struct Nodo {
   int32_t primerHijo = -1;
   int32_t hermano = -1;
-  int32_t idTermino = -1;          // >= 0 si aqui termina una palabra
-  uint8_t c = 0;                   // el caracter
-  uint8_t relleno[3] = {0, 0, 0};  // cache binario determinista
-};
+  int32_t idTermino = -1;        // >= 0 si aqui termina una palabra
+  uint8_t c = 0;                 // el caracter
+  uint8_t denso[3] = {0, 0, 0};  // indice de su tabla de 36 hijos (0 = no denso)
+};                               // 16 bytes
 ```
 
-En la Parte 2 se agregó un **Árbol AVL** (`ArbolAVLAnios`) para filtrar por
+En la Parte 2 los tries recibieron **nodos adaptativos** (§3.6): los nodos con
+4 o más hijos usan una tabla de 36 para bajar en O(1), lo que hace la búsqueda
+de palabra ~2.6x más rápida y O(|palabra|) garantizado.
+
+También se agregó un **Árbol AVL** (`ArbolAVLAnios`) para filtrar por
 **rango de años**. Un trie no sirve para "películas entre 1990 y 2005"; un árbol
 binario de búsqueda sí, y el AVL garantiza altura O(log n) aunque los años se
 inserten ordenados (el peor caso de un BST normal). Cada nodo es un año y
@@ -820,11 +891,12 @@ Detalles de implementación:
 ./build/pruebas      # o: make pruebas && ./pruebas   (desde la raíz del repo)
 ```
 
-**102 pruebas**: las 64 de la Parte 1 (normalizador, CSV, tries, índice,
-ranking, recomendaciones, caché) y 38 nuevas:
+**108 pruebas**: las 64 de la Parte 1 (normalizador, CSV, tries, índice,
+ranking, recomendaciones, caché) y 44 nuevas:
 
 | Grupo | Qué se verifica |
 |---|---|
+| Nodos adaptativos (6) | mismos resultados con y sin tablas en ambos tries, insertar en un nodo ya denso, el índice los activa |
 | Árbol AVL (12) | altura logarítmica con inserción creciente y decreciente, rangos, rango invertido o vacío, años repetidos |
 | Patrones (19) | Singleton (misma instancia, no se reinicializa), Builder (filtros combinados), Proxy (bloqueos, delegación, auditoría), Memento (deshacer dos veces) |
 | Paralelismo (7) | `paraleloPorBloques` cubre cada índice una vez; índice, caché, búsqueda y lote idénticos con 1 y 4 hilos; el bonus de frase no se duplica |

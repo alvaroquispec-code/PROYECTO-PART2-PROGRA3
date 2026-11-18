@@ -671,11 +671,13 @@ int main(int argc, char **argv) {
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::TextColored(kAmarillo, "ARBOLES EN MEMORIA");
-        ImGui::Text("Trie de prefijos : %zu nodos | %zu terminos",
+        ImGui::Text("Trie de prefijos : %zu nodos (%zu densos) | %zu terminos",
                     motor.indice().vocabulario().numNodos(),
+                    motor.indice().vocabulario().numNodosDensos(),
                     motor.indice().vocabulario().numTerminos());
-        ImGui::Text("Trie de sufijos  : %zu nodos",
-                    motor.indice().sufijos().numNodos());
+        ImGui::Text("Trie de sufijos  : %zu nodos (%zu densos)",
+                    motor.indice().sufijos().numNodos(),
+                    motor.indice().sufijos().numNodosDensos());
         ImGui::Text("Arbol AVL anios  : %zu nodos | altura %d",
                     motor.arbolAnios().totalNodos(),
                     motor.arbolAnios().alturaTotal());

@@ -368,6 +368,53 @@ void pruebasPatrones() {
   revisar(!historial.hayHistorial(), "Memento: el historial queda vacio");
 }
 
+
+void pruebasNodosAdaptativos() {
+  std::cout << "\n== Nodos adaptativos de los tries ==\n";
+  // Vocabulario donde 'a' tiene 6 hijos (denso) y el resto pocos.
+  const std::vector<std::string> palabras = {
+      "ab", "ac", "ad", "ae", "af", "ag", "abc", "abd", "ship", "shop", "she",
+      "bar", "barber", "embark", "car", "x9", "a1b2"};
+  pf::TriePrefijos lista, adapt;
+  for (const auto &w : palabras) { lista.insertar(w); adapt.insertar(w); }
+  adapt.densificar();
+  revisar(adapt.numNodosDensos() >= 2, "la raiz y 'a' quedan como nodos densos");
+
+  bool igual = true;
+  const std::vector<std::string> consultas = {"ab", "ag", "abc", "abz", "she", "sh", "shipx",
+                                              "bar", "barb", "x9", "a1b2", "a1", "zz", ""};
+  for (const auto &q : consultas) {
+    if (lista.buscar(q) != adapt.buscar(q)) igual = false;
+    if (lista.conPrefijo(q, 100).size() != adapt.conPrefijo(q, 100).size()) igual = false;
+  }
+  revisar(igual, "buscar y conPrefijo dan lo mismo con y sin nodos densos");
+
+  // Insertar despues de densificar sigue funcionando (actualiza la tabla).
+  const int idNuevo = adapt.insertar("ah");
+  revisar(adapt.buscar("ah") == idNuevo, "insertar en un nodo ya denso funciona");
+  revisar(adapt.buscar("ab") == lista.buscar("ab"), "las palabras previas siguen ahi");
+
+  pf::TrieSufijos sl, sa;
+  for (size_t i = 0; i < palabras.size(); ++i) {
+    sl.insertarTermino(palabras[i], static_cast<int>(i));
+    sa.insertarTermino(palabras[i], static_cast<int>(i));
+  }
+  sa.densificar();
+  bool igualSuf = sa.numNodosDensos() > 0;
+  for (const std::string p : {"b", "ar", "bar", "a", "sh", "9", "zz", "rk"}) {
+    if (sl.terminosQueContienen(p, 100) != sa.terminosQueContienen(p, 100)) igualSuf = false;
+  }
+  revisar(igualSuf, "TrieSufijos: sub-cadenas iguales con y sin nodos densos");
+
+  // Con el catalogo real, el indice deja los dos tries densificados.
+  pf::Catalogo catalogo;
+  catalogo.cargarDesdeCSV("tests/mini.csv");
+  pf::Indice indice;
+  indice.construir(catalogo);
+  revisar(indice.vocabulario().numNodosDensos() > 0 && indice.sufijos().numNodosDensos() > 0,
+          "Indice::construir densifica los dos tries");
+}
+
 void pruebasParalelo() {
   std::cout << "\n== Programacion paralela ==\n";
 
@@ -466,6 +513,7 @@ int main() {
   pruebasTries();
   pruebasCatalogoEIndice();
   pruebasArbolAVL();
+  pruebasNodosAdaptativos();
   pruebasPatrones();
   pruebasParalelo();
   std::cout << "\n----------------------------------------\n";

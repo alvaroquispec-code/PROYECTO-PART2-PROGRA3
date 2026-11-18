@@ -17,7 +17,7 @@ constexpr size_t kTerminosPorPerfil = 40;
 // Cabecera del cache. La version sube cuando cambia el formato o cualquier
 // parametro que altere el contenido del indice.
 constexpr uint32_t kMagiaCache = 0x55544543u; // "UTEC"
-constexpr uint32_t kVersionCache = 3;
+constexpr uint32_t kVersionCache = 4; // 4: nodos adaptativos en los tries
 } // namespace
 
 double Indice::idfDesdeDf(double dfEntrada) const {
@@ -143,6 +143,11 @@ EstadisticasIndice Indice::construir(const Catalogo &catalogo, unsigned numHilos
     const std::string &t = vocab_.termino(static_cast<int>(id));
     if (t.size() <= 24) sufijos_.insertarTermino(t, static_cast<int>(id));
   }
+
+  // Nodos adaptativos: los nodos con muchos hijos reciben una tabla de 36
+  // para bajar en O(1) (ver trie.hpp).
+  vocab_.densificar();
+  sufijos_.densificar();
 
   construirPerfiles(numHilos);
 

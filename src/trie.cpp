@@ -28,6 +28,7 @@ int TriePrefijos::insertar(const std::string &palabra) {
       } else {
         nodos_[anterior].hermano = hijo;
       }
+      detalle::registrarHijo(nodos_, tablas_, actual, hijo);
     }
     actual = hijo;
   }
@@ -41,10 +42,8 @@ int TriePrefijos::insertar(const std::string &palabra) {
 int32_t TriePrefijos::descender(const std::string &s) const {
   int32_t actual = 0;
   for (unsigned char c : s) {
-    int32_t hijo = nodos_[actual].primerHijo;
-    while (hijo != -1 && nodos_[hijo].c != c) hijo = nodos_[hijo].hermano;
-    if (hijo == -1) return -1;
-    actual = hijo;
+    actual = detalle::hijo(nodos_, tablas_, actual, c); // O(1) en el peor caso
+    if (actual == -1) return -1;
   }
   return actual;
 }
@@ -78,11 +77,13 @@ void TriePrefijos::escribir(EscritorBinario &e) const {
 }
 
 bool TriePrefijos::leer(LectorBinario &l) {
-  return l.vectorPod(nodos_) && l.vectorCadenas(terminos_);
+  if (!l.vectorPod(nodos_) || !l.vectorCadenas(terminos_)) return false;
+  densificar(); // las tablas no se guardan: se recalculan (milisegundos)
+  return true;
 }
 
 size_t TriePrefijos::bytesAproximados() const {
-  size_t b = nodos_.capacity() * sizeof(Nodo);
+  size_t b = nodos_.capacity() * sizeof(Nodo) + tablas_.capacity() * sizeof(TablaHijos);
   for (const auto &t : terminos_) b += t.capacity() + sizeof(std::string);
   return b;
 }
@@ -114,6 +115,7 @@ void TrieSufijos::insertarTermino(const std::string &t, int idTermino) {
         } else {
           nodos_[anterior].hermano = hijo;
         }
+        detalle::registrarHijo(nodos_, tablas_, actual, hijo);
       }
       actual = hijo;
     }
@@ -130,10 +132,8 @@ std::vector<int> TrieSufijos::terminosQueContienen(const std::string &patron,
 
   int32_t actual = 0;
   for (unsigned char c : patron) {
-    int32_t hijo = nodos_[actual].primerHijo;
-    while (hijo != -1 && nodos_[hijo].c != c) hijo = nodos_[hijo].hermano;
-    if (hijo == -1) return salida; // el patron no aparece en ninguna palabra
-    actual = hijo;
+    actual = detalle::hijo(nodos_, tablas_, actual, c); // O(1) en el peor caso
+    if (actual == -1) return salida; // el patron no aparece en ninguna palabra
   }
 
   // Recorrido en profundidad del subarbol: cada marca es un termino que
@@ -161,11 +161,14 @@ void TrieSufijos::escribir(EscritorBinario &e) const {
 }
 
 bool TrieSufijos::leer(LectorBinario &l) {
-  return l.vectorPod(nodos_) && l.vectorPod(entradas_);
+  if (!l.vectorPod(nodos_) || !l.vectorPod(entradas_)) return false;
+  densificar(); // las tablas no se guardan: se recalculan (milisegundos)
+  return true;
 }
 
 size_t TrieSufijos::bytesAproximados() const {
-  return nodos_.capacity() * sizeof(Nodo) + entradas_.capacity() * sizeof(Entrada);
+  return nodos_.capacity() * sizeof(Nodo) + entradas_.capacity() * sizeof(Entrada) +
+         tablas_.capacity() * sizeof(TablaHijos);
 }
 
 } // namespace pf
