@@ -288,6 +288,9 @@ void Buscador::reordenarPorFrase(const Consulta &q,
                                  std::vector<Resultado> &res) const {
   if (q.textoNormalizado.size() < 3 || q.terminos.size() < 2) return;
   const std::string &frase = q.textoNormalizado;
+  // Cada candidato cuesta ~15 us (normalizar su sinopsis): con al menos 50
+  // por hilo, 400 candidatos usan como maximo 8 hilos aunque la PC tenga 32.
+  constexpr size_t kCandidatosPorHilo = 50;
   paraleloPorBloques(res.size(), hilos_, [&](size_t ini, size_t fin) {
     for (size_t i = ini; i < fin; ++i) {
       Resultado &r = res[i];
@@ -298,7 +301,7 @@ void Buscador::reordenarPorFrase(const Consulta &q,
         r.puntaje += kBonusFraseSinopsis;
       }
     }
-  });
+  }, kCandidatosPorHilo);
 }
 
 void Buscador::explicar(const Consulta &q, std::vector<Resultado> &res) const {

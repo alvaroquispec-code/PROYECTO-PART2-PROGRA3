@@ -1,6 +1,6 @@
 // hilos.hpp — Utilidad minima de paralelismo (std::thread, sin dependencias).
 //
-// paraleloPorBloques(n, hilos, f) parte el rango [0, n) en bloques contiguos y
+// paraleloPorBloques(n, hilos, f, minPorHilo) parte el rango [0, n) en bloques contiguos y
 // ejecuta f(inicio, fin) en un hilo por bloque. El hilo que llama procesa el
 // primer bloque, asi que con hilos == 1 no se crea ningun hilo y el codigo es
 // exactamente el secuencial.
@@ -22,11 +22,19 @@ inline unsigned resolverHilos(unsigned pedidos) {
   return hw == 0 ? 1u : hw;
 }
 
+// minPorHilo: trabajo minimo que recibe cada hilo. Crear un hilo cuesta
+// decenas de microsegundos, asi que repartir una tarea chica entre muchos
+// hilos (400 candidatos entre 32 hilos = 12 por hilo) puede costar mas de lo
+// que ahorra. Con minPorHilo se usan como maximo n / minPorHilo hilos: en una
+// PC de 32 hilos una tarea chica usa pocos y una grande los usa todos.
 template <typename Funcion>
-void paraleloPorBloques(size_t n, unsigned hilos, Funcion &&f) {
+void paraleloPorBloques(size_t n, unsigned hilos, Funcion &&f,
+                        size_t minPorHilo = 1) {
   if (n == 0) return;
   hilos = resolverHilos(hilos);
-  if (hilos > n) hilos = static_cast<unsigned>(n);
+  if (minPorHilo == 0) minPorHilo = 1;
+  const size_t maxHilos = std::max<size_t>(1, n / minPorHilo);
+  if (hilos > maxHilos) hilos = static_cast<unsigned>(maxHilos);
   if (hilos <= 1) {
     f(size_t{0}, n);
     return;

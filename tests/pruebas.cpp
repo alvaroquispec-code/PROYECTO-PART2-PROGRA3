@@ -18,6 +18,7 @@
 #include "patrones.hpp"
 #include "rutas.hpp"
 
+#include <atomic>
 #include <cstdio>
 #include <fstream>
 #include <iterator>
@@ -431,6 +432,14 @@ void pruebasParalelo() {
     }
   }
   revisar(cubreTodo, "paraleloPorBloques visita cada indice una sola vez");
+
+  // Con minPorHilo, una tarea chica no se reparte entre demasiados hilos.
+  std::atomic<int> bloques{0}; // atomico: lo incrementan varios hilos
+  pf::paraleloPorBloques(400, 32, [&](size_t, size_t) { ++bloques; }, 50);
+  revisar(bloques == 8, "400 tareas con minimo 50 por hilo usan 8 hilos, no 32");
+  bloques = 0;
+  pf::paraleloPorBloques(10, 32, [&](size_t, size_t) { ++bloques; }, 50);
+  revisar(bloques == 1, "una tarea muy chica se hace en el hilo actual");
 
   // El indice construido con 1 y con 4 hilos es identico.
   pf::Catalogo catalogo;

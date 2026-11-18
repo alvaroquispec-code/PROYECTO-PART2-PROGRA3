@@ -122,7 +122,7 @@ EstadisticasIndice Indice::construir(const Catalogo &catalogo, unsigned numHilos
     // MAP en paralelo: cada hilo tokeniza su rango [ini, fin) del lote.
     paraleloPorBloques(enLote, numHilos, [&](size_t ini, size_t fin) {
       for (size_t i = ini; i < fin; ++i) tokenizarDoc(base + i, tokensLote[i]);
-    });
+    }, /*minPorHilo=*/64);
 
     // REDUCE secuencial, en el orden original.
     for (size_t i = 0; i < enLote; ++i) {
@@ -270,6 +270,9 @@ void Indice::construirPerfiles(unsigned numHilos) {
   // busqueda binaria salta directo a sus documentos, asi que solo escribe en
   // los monticulos y perfiles de SU rango. Como cada documento ve los terminos
   // en el mismo orden que en la version secuencial, el resultado es identico.
+  // Cada hilo recorre las listas de publicaciones completas (con busqueda
+  // binaria), asi que con demasiados hilos ese recorrido se repite de mas:
+  // al menos 2048 peliculas por hilo.
   paraleloPorBloques(numDocs_, numHilos, [&](size_t ini, size_t fin) {
     std::vector<std::vector<std::pair<float, int32_t>>> monticulos(fin - ini);
 
@@ -309,7 +312,7 @@ void Indice::construirPerfiles(unsigned numHilos) {
                 });
       normas_[d] = static_cast<float>(std::sqrt(norma2)) + 1e-6f;
     }
-  });
+  }, /*minPorHilo=*/2048);
 }
 
 } // namespace pf

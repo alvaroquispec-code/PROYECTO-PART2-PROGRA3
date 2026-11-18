@@ -31,7 +31,7 @@ externas**. La única biblioteca de terceros es la de la interfaz gráfica
 | **Árbol** (TriePrefijos, TrieSufijos y Árbol AVL) | `include/trie.hpp`, `src/trie.cpp`, `include/arbol_avl.hpp`, `src/arbol_avl.cpp` | [§3](#3-justificación-de-la-estructura-de-árbol), [§12.1](#121-árboles) |
 | **Programación paralela** en inserción y búsqueda de strings | `include/hilos.hpp`, `src/indice.cpp`, `src/buscador.cpp`, `src/paralelo.cpp` | [§12.3](#123-programación-paralela) |
 | **Interfaz gráfica** (Dear ImGui) | `src/gui_main.cpp` | [§12.4](#124-interfaz-gráfica) |
-| Pruebas de todo lo anterior | `tests/pruebas.cpp` (108 pruebas) | [§12.5](#125-pruebas) |
+| Pruebas de todo lo anterior | `tests/pruebas.cpp` (110 pruebas) | [§12.5](#125-pruebas) |
 
 ---
 
@@ -62,7 +62,7 @@ cmake --build build -j
 
 ./build/streaming_gui                     # interfaz gráfica
 ./build/streaming                         # interfaz de consola
-./build/pruebas                           # 108 pruebas
+./build/pruebas                           # 110 pruebas
 ./build/streaming --benchmark             # 1 hilo vs N hilos
 ```
 
@@ -601,7 +601,7 @@ Latencias por tipo de consulta:
 | Todo el programa en C++ | C++17; el motor sin dependencias, la GUI con Dear ImGui | ✅ |
 | Documentación en el repositorio | este README + `docs/capturas/` | ✅ |
 | Subir el programa a un repositorio en GitHub | este repositorio | ✅ |
-| Pruebas automatizadas | `tests/pruebas.cpp` (108 pruebas) | ✅ |
+| Pruebas automatizadas | `tests/pruebas.cpp` (110 pruebas) | ✅ |
 | **E2:** 4 patrones de diseño | `patrones.*`, §12.2 | ✅ |
 | **E2:** Árbol | `trie.*`, `arbol_avl.*`, §12.1 | ✅ |
 | **E2:** Programación paralela en inserción y búsqueda de strings | `hilos.hpp`, `indice.cpp`, `buscador.cpp`, `paralelo.*`, §12.3 | ✅ |
@@ -812,6 +812,14 @@ construido con 1 y con N hilos es **idéntico**: el caché binario sale igual
 byte a byte (hay una prueba que lo verifica). La construcción de los perfiles
 de recomendación también se reparte por rangos de películas.
 
+**Trabajo mínimo por hilo.** Crear un hilo cuesta decenas de microsegundos,
+así que repartir una tarea chica entre todos los hilos de la PC puede costar
+más de lo que ahorra (400 candidatos entre 32 hilos son 12 por hilo).
+`paraleloPorBloques` recibe un mínimo de trabajo por hilo: el re-ranking por
+frase usa al menos 50 candidatos por hilo (como máximo 8 hilos), y la
+tokenización 64 películas. Forzando 32 hilos en una máquina de 2 núcleos, una
+consulta pasó de 1.13× a ~1.35× de speedup.
+
 **2 y 3. Búsqueda.** El `Buscador` reutiliza acumuladores internos entre
 consultas (por velocidad), así que **un mismo `Buscador` no puede usarse desde
 dos hilos**. Por eso el lote crea un `Buscador` por hilo, y dentro de una
@@ -904,12 +912,12 @@ Detalles de implementación:
 ./build/pruebas      # o: make pruebas && ./pruebas   (desde la raíz del repo)
 ```
 
-**108 pruebas**: las 64 de la Parte 1 (normalizador, CSV, tries, índice,
-ranking, recomendaciones, caché) y 44 nuevas:
+**110 pruebas**: las 64 de la Parte 1 (normalizador, CSV, tries, índice,
+ranking, recomendaciones, caché) y 46 nuevas:
 
 | Grupo | Qué se verifica |
 |---|---|
 | Nodos adaptativos (6) | mismos resultados con y sin tablas en ambos tries, insertar en un nodo ya denso, el índice los activa |
 | Árbol AVL (12) | altura logarítmica con inserción creciente y decreciente, rangos, rango invertido o vacío, años repetidos |
 | Patrones (19) | Singleton (misma instancia, no se reinicializa), Builder (filtros combinados), Proxy (bloqueos, delegación, auditoría), Memento (deshacer dos veces) |
-| Paralelismo (7) | `paraleloPorBloques` cubre cada índice una vez; índice, caché, búsqueda y lote idénticos con 1 y 4 hilos; el bonus de frase no se duplica |
+| Paralelismo (9) | `paraleloPorBloques` cubre cada índice una vez y respeta el mínimo por hilo; índice, caché, búsqueda y lote idénticos con 1 y 4 hilos; el bonus de frase no se duplica |
