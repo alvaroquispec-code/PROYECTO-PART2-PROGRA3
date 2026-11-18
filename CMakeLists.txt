@@ -30,6 +30,10 @@ add_library(motor STATIC
     src/paralelo.cpp
 )
 target_include_directories(motor PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Ruta absoluta del repositorio: los programas buscan ahi data/ y tests/ si no
+# los encuentran en la carpeta desde la que se ejecutan (ver include/rutas.hpp).
+# Asi funcionan desde CLion o Visual Studio sin configurar el Working directory.
+target_compile_definitions(motor PUBLIC PROYECTO_RAIZ="${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(motor PUBLIC Threads::Threads)
 
 # 1. Interfaz de consola

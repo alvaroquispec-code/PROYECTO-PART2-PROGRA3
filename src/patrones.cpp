@@ -1,4 +1,5 @@
 #include "patrones.hpp"
+#include "rutas.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -18,18 +19,10 @@ bool MotorStream::inicializar(const std::string &rutaCsv, bool usarCache,
                               unsigned numHilos) {
   if (inicializado_) return true;
 
-  // Buscar el CSV tanto en ruta directa como en ../ (util si se ejecuta desde /build)
-  std::string rutaFinal = rutaCsv;
-  std::ifstream prueba(rutaFinal, std::ios::binary);
-  if (!prueba) {
-    std::string alternativa = "../" + rutaCsv;
-    std::ifstream pruebaAlt(alternativa, std::ios::binary);
-    if (pruebaAlt) {
-      rutaFinal = alternativa;
-    } else {
-      return false;
-    }
-  }
+  // El CSV se busca tal cual, en la raiz del proyecto y en ../ (rutas.hpp),
+  // asi funciona aunque se ejecute desde la carpeta de compilacion.
+  const std::string rutaFinal = resolverRuta(rutaCsv);
+  if (!std::ifstream(rutaFinal, std::ios::binary)) return false;
   rutaCsvActiva_ = rutaFinal;
 
   const std::string rutaCache = rutaFinal + ".cache";

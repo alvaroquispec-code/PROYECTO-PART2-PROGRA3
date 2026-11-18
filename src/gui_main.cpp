@@ -1,9 +1,9 @@
 // gui_main.cpp — Interfaz grafica de UTEC Stream (Dear ImGui + GLFW + OpenGL 3).
 //
 // Uso:  streaming_gui [ruta_csv] [ruta_estado]
-//   ruta_csv     por defecto data/wiki_movie_plots_deduped.csv (tambien se
-//                busca en ../ para poder ejecutarlo desde build/)
-//   ruta_estado  por defecto datos_usuario.txt
+//   ruta_csv     por defecto data/wiki_movie_plots_deduped.csv (se busca
+//                tambien en la raiz del proyecto: funciona desde build/)
+//   ruta_estado  por defecto datos_usuario.txt en la raiz del proyecto
 //
 // Pestanas:
 //   Inicio            Ver mas tarde + recomendaciones por los Me gusta
@@ -31,6 +31,7 @@
 #include "normalizador.hpp"
 #include "paralelo.hpp"
 #include "patrones.hpp"
+#include "rutas.hpp"
 
 namespace {
 
@@ -73,9 +74,11 @@ void dibujarFrame(GLFWwindow *ventana) {
 } // namespace
 
 int main(int argc, char **argv) {
+  // Funciona aunque se ejecute desde la carpeta de compilacion (ver rutas.hpp).
   const std::string rutaCsv =
-      argc > 1 ? argv[1] : "data/wiki_movie_plots_deduped.csv";
-  const std::string rutaEstado = argc > 2 ? argv[2] : "datos_usuario.txt";
+      pf::resolverRuta(argc > 1 ? argv[1] : "data/wiki_movie_plots_deduped.csv");
+  const std::string rutaEstado =
+      argc > 2 ? argv[2] : pf::rutaEnRaiz("datos_usuario.txt");
 
   // --- Ventana y contexto de ImGui ------------------------------------------
   if (!glfwInit()) return 1;
@@ -619,6 +622,9 @@ int main(int argc, char **argv) {
         }
         const bool corriendo = benchEnCurso.valid();
         ImGui::BeginDisabled(corriendo);
+#ifndef NDEBUG
+        ImGui::TextColored(kAmarillo, "Compilado en Debug: para medir tiempos reales usa Release.");
+#endif
         if (ImGui::Button("Ejecutar benchmark")) {
           benchEnCurso = std::async(std::launch::async, [&motor]() {
             return pf::MotorParalelo::ejecutarBenchmark(motor.catalogo(),

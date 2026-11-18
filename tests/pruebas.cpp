@@ -16,6 +16,7 @@
 #include "hilos.hpp"
 #include "paralelo.hpp"
 #include "patrones.hpp"
+#include "rutas.hpp"
 
 #include <cstdio>
 #include <fstream>
@@ -507,6 +508,9 @@ void pruebasParalelo() {
 } // namespace
 
 int main() {
+  // Las pruebas usan rutas como tests/mini.csv. Si se ejecutan desde la carpeta
+  // de compilacion (CLion, Visual Studio), se cambia a la raiz del proyecto.
+  pf::irARaizSiHaceFalta("tests/mini.csv");
   std::cout << "Pruebas del proyecto final de Programacion III\n";
   pruebasNormalizador();
   pruebasCsv();

@@ -66,9 +66,17 @@ cmake --build build -j
 ./build/streaming --benchmark             # 1 hilo vs N hilos
 ```
 
-Los ejecutables se lanzan **desde la raíz del repositorio**, para que encuentren
-`data/` y `tests/mini.csv`. La interfaz gráfica también busca el CSV en `../`,
-así que funciona igual si se ejecuta desde `build/`.
+Los programas se pueden ejecutar **desde cualquier carpeta**: CMake les pasa
+la ruta del repositorio (`PROYECTO_RAIZ`, ver `include/rutas.hpp`) y ahí buscan
+`data/` y `tests/` si no los encuentran en la carpeta actual. El estado del
+usuario (`datos_usuario.txt`) se guarda siempre en la raíz del repositorio.
+
+**Con CLion:** *File → Open* → la carpeta del repositorio → *CMake project*.
+CLion descarga ImGui y GLFW la primera vez y aparecen las configuraciones
+`streaming_gui`, `streaming` y `pruebas`; no hace falta configurar el
+*Working directory*. Para medir tiempos con `--benchmark`, agrega el perfil
+**Release** en *Settings → Build, Execution, Deployment → CMake → +*; en
+Debug el programa avisa que los tiempos no son representativos.
 
 En Linux, GLFW necesita las cabeceras de X11 y OpenGL:
 
@@ -314,6 +322,7 @@ main.cpp / gui_main.cpp   consola / interfaz grafica + EstadoUsuario
 | `arbol_avl.*` | Árbol AVL de años para filtrar por rango |
 | `patrones.*` | Singleton, Builder, Proxy y Memento |
 | `hilos.hpp` | `paraleloPorBloques`: reparte un rango entre hilos |
+| `rutas.hpp` | Encuentra `data/` y `tests/` aunque se ejecute desde la carpeta de compilación |
 | `paralelo.*` | Búsqueda de lotes con un `Buscador` por hilo y benchmark |
 
 ---

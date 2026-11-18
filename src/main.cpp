@@ -19,6 +19,7 @@
 #include "normalizador.hpp"
 #include "paralelo.hpp"
 #include "recomendador.hpp"
+#include "rutas.hpp"
 
 namespace {
 
@@ -357,6 +358,10 @@ void imprimirUso() {
 
 int ejecutarBenchmark(const pf::Catalogo &catalogo, const pf::Indice &indice,
                       unsigned hilos) {
+#ifndef NDEBUG
+  std::cout << "\nAVISO: compilado en modo Debug (sin optimizar). Para medir "
+               "tiempos reales usa el perfil Release.\n";
+#endif
   std::cout << "\nBenchmark de programacion paralela ("
             << pf::resolverHilos(hilos) << " hilos vs 1 hilo) ...\n";
   const pf::ResultadoBenchmark b =
@@ -411,6 +416,10 @@ int main(int argc, char **argv) {
   }
   if (posicionales.size() > 0) rutaCsv = posicionales[0];
   if (posicionales.size() > 1) rutaEstado = posicionales[1];
+  else rutaEstado = pf::rutaEnRaiz(kRutaEstadoPorDefecto);
+
+  // Funciona aunque se ejecute desde la carpeta de compilacion (ver rutas.hpp).
+  rutaCsv = pf::resolverRuta(rutaCsv);
 
   const std::string rutaCache = rutaCsv + ".cache";
   const uint64_t huella = huellaDeArchivo(rutaCsv);
