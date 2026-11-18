@@ -1,0 +1,26 @@
+# Dataset y cache (ver data/LEEME.md)
+data/*.csv
+data/*.cache
+*.cache
+
+# Compilacion
+build/
+cmake-build-*/
+*.o
+*.d
+*.obj
+*.exe
+/streaming
+/streaming_gui
+/pruebas
+/pruebas_tsan
+
+# Estado del usuario y temporales
+datos_usuario.txt
+tests/*.tmp
+imgui.ini
+
+# Editores
+.vscode/
+.idea/
+.DS_Store
