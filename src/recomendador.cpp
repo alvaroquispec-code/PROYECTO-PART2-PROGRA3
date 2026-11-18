@@ -160,7 +160,7 @@ std::vector<Resultado> Recomendador::paraUsuario(
       s /= (indice_.normaPerfil(m) * indice_.normaPerfil(r.doc) + 1e-9);
       if (s > mejorSim) { mejorSim = s; mejor = m; }
     }
-    r.explicacion = "porque te gusto \"" + catalogo_[mejor].titulo + "\"";
+    r.explicacion = "porque te gustó \"" + catalogo_[mejor].titulo + "\"";
   }
   return salida;
 }

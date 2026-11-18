@@ -1,6 +1,11 @@
 // main.cpp — Interfaz de consola de la plataforma de streaming.
 //
 // Programacion III (CS2013) — Proyecto Final 2026-2 — UTEC
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h> // SetConsoleOutputCP: la consola de Windows muestra UTF-8
+#endif
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -390,6 +395,9 @@ int ejecutarBenchmark(const pf::Catalogo &catalogo, const pf::Indice &indice,
 } // namespace
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+  SetConsoleOutputCP(CP_UTF8); // tildes y enie en la consola de Windows
+#endif
   std::ios::sync_with_stdio(false);
 
   std::string rutaCsv = "data/wiki_movie_plots_deduped.csv";

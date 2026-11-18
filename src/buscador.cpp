@@ -166,7 +166,7 @@ Consulta Buscador::interpretar(const std::string &linea) const {
 
   q.valida = !q.terminos.empty() || q.anio > 0;
   if (!q.valida) {
-    q.mensaje = "Ninguna palabra de la consulta aparece en el catalogo.";
+    q.mensaje = "Ninguna palabra de la consulta aparece en el catálogo.";
   }
   return q;
 }
@@ -306,7 +306,7 @@ void Buscador::explicar(const Consulta &q, std::vector<Resultado> &res) const {
     const std::string &tn = catalogo_[r.doc].tituloNorm;
     if (q.terminos.size() > 1 && !q.textoNormalizado.empty() &&
         tn.find(q.textoNormalizado) != std::string::npos) {
-      r.explicacion = "frase exacta en el titulo";
+      r.explicacion = "frase exacta en el título";
       continue;
     }
     size_t enTitulo = 0;
@@ -315,7 +315,7 @@ void Buscador::explicar(const Consulta &q, std::vector<Resultado> &res) const {
     }
     if (enTitulo > 0) {
       r.explicacion = std::to_string(enTitulo) + "/" +
-                      std::to_string(q.terminos.size()) + " en el titulo";
+                      std::to_string(q.terminos.size()) + " en el título";
     } else {
       r.explicacion = std::to_string(coincidencias_[r.doc]) + "/" +
                       std::to_string(q.terminos.size()) + " en sinopsis/etiquetas";

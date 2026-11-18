@@ -13,6 +13,12 @@ option(CONSTRUIR_GUI "Compilar la interfaz grafica (ImGui + GLFW + OpenGL)" ON)
 
 find_package(Threads REQUIRED)
 
+# Los textos del codigo estan en UTF-8 (tildes, enie). GCC y Clang ya lo asumen;
+# Visual Studio necesita /utf-8.
+if(MSVC)
+  add_compile_options(/utf-8)
+endif()
+
 # ---------------------------------------------------------------------------
 # Motor: todo el codigo del proyecto salvo los main()
 # ---------------------------------------------------------------------------

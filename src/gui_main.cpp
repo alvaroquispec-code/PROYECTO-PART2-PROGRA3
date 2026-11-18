@@ -55,7 +55,13 @@ float px(float v) { return v * ImGui::GetFontSize() / 13.0f; }
 void cargarFuente(float tam) {
   ImGuiIO &io = ImGui::GetIO();
   io.Fonts->Clear();
-  static const ImWchar rangos[] = {0x0020, 0x00FF, 0}; // ASCII + Latin-1
+  // Rangos de caracteres que aparecen en el dataset: ASCII + Latin-1 (tildes,
+  // enie), Latin extendido (o y u con macron de los titulos japoneses), griego,
+  // cirilico y puntuacion tipografica (comillas curvas, guiones largos), que
+  // es la mitad de los caracteres especiales de las sinopsis.
+  static const ImWchar rangos[] = {
+      0x0020, 0x00FF, 0x0100, 0x024F, 0x0370, 0x03FF, 0x0400, 0x04FF,
+      0x2000, 0x206F, 0x20A0, 0x20CF, 0x2100, 0x214F, 0};
   const char *candidatas[] = {
       "C:/Windows/Fonts/segoeui.ttf",
       "/System/Library/Fonts/Supplemental/Arial.ttf",
@@ -68,6 +74,14 @@ void cargarFuente(float tam) {
       fuente = io.Fonts->AddFontFromFileTTF(ruta, tam, nullptr, rangos);
       if (fuente) break;
     }
+  }
+  // Peliculas de la India (malayalam, hindi, tamil...) traen titulos en esas
+  // escrituras: en Windows se agregan desde Nirmala UI a la misma fuente.
+  if (fuente && std::ifstream("C:/Windows/Fonts/Nirmala.ttf").good()) {
+    static const ImWchar indias[] = {0x0900, 0x0DFF, 0};
+    ImFontConfig mezcla;
+    mezcla.MergeMode = true;
+    io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/Nirmala.ttf", tam, &mezcla, indias);
   }
   if (!fuente) {
     ImFontConfig cfg;
@@ -149,7 +163,7 @@ int main(int argc, char **argv) {
   glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
   GLFWwindow *ventana = glfwCreateWindow(
       static_cast<int>(1320 * escalaPantalla), static_cast<int>(840 * escalaPantalla),
-      "UTEC Stream - CS2013 Programacion III", nullptr, nullptr);
+      "UTEC Stream - CS2013 Programación III", nullptr, nullptr);
   if (!ventana) {
     glfwTerminate();
     return 1;
@@ -270,7 +284,7 @@ int main(int argc, char **argv) {
                          resultados.end());
       } else if (q.terminos.empty() && q.anio < 0) {
         // Sin texto: listar el rango, del anio mas reciente al mas antiguo.
-        for (int d : docs) resultados.push_back({d, 0.0, "rango de anios (AVL)"});
+        for (int d : docs) resultados.push_back({d, 0.0, "rango de años (AVL)"});
         std::stable_sort(resultados.begin(), resultados.end(),
                          [&](const pf::Resultado &a, const pf::Resultado &b) {
                            return motor.catalogo()[a.doc].anio >
@@ -310,7 +324,7 @@ int main(int argc, char **argv) {
       std::string etiqueta = std::to_string(i + 1) + ". " + p.titulo;
       if (p.anio > 0) etiqueta += " (" + std::to_string(p.anio) + ")";
       if (estadoUsuario.tieneMeGusta(r.doc)) etiqueta += "  [Me gusta]";
-      if (estadoUsuario.tieneVerMasTarde(r.doc)) etiqueta += "  [Ver mas tarde]";
+      if (estadoUsuario.tieneVerMasTarde(r.doc)) etiqueta += "  [Ver más tarde]";
       etiqueta += "##" + std::to_string(r.doc);
       if (ImGui::Selectable(etiqueta.c_str(), docSeleccionado == r.doc)) {
         seleccionar(r.doc);
@@ -330,7 +344,7 @@ int main(int argc, char **argv) {
       if (ImGui::Button("< Anteriores 5")) --pagina;
       ImGui::EndDisabled();
       ImGui::SameLine();
-      ImGui::Text("Pagina %d de %d", pagina + 1, paginas);
+      ImGui::Text("Página %d de %d", pagina + 1, paginas);
       ImGui::SameLine();
       ImGui::BeginDisabled(pagina + 1 >= paginas);
       if (ImGui::Button("Siguientes 5 >")) ++pagina;
@@ -343,7 +357,7 @@ int main(int argc, char **argv) {
   auto dibujarFicha = [&]() {
     if (docSeleccionado < 0 ||
         docSeleccionado >= static_cast<int>(motor.catalogo().tamano())) {
-      ImGui::TextDisabled("Selecciona una pelicula para ver su ficha.");
+      ImGui::TextDisabled("Selecciona una película para ver su ficha.");
       return;
     }
     const int doc = docSeleccionado;
@@ -355,7 +369,7 @@ int main(int argc, char **argv) {
     ImGui::Separator();
     if (!p.director.empty()) ImGui::TextWrapped("Director: %s", p.director.c_str());
     if (!p.generos.empty())
-      ImGui::TextWrapped("Generos:  %s", unirLista(p.generos).c_str());
+      ImGui::TextWrapped("Géneros:  %s", unirLista(p.generos).c_str());
     if (!p.reparto.empty())
       ImGui::TextWrapped("Reparto:  %s", unirLista(p.reparto, 6).c_str());
     if (!p.origen.empty()) ImGui::TextWrapped("Origen:   %s", p.origen.c_str());
@@ -370,7 +384,7 @@ int main(int argc, char **argv) {
     }
     ImGui::SameLine();
     const bool esVer = estadoUsuario.tieneVerMasTarde(doc);
-    if (ImGui::Button(esVer ? "Quitar de Ver mas tarde" : "Ver mas tarde")) {
+    if (ImGui::Button(esVer ? "Quitar de Ver más tarde" : "Ver más tarde")) {
       historial.agregarEstado(gestorEstado.guardarEstado());
       gestorEstado.alternarVerMasTarde(doc);
       guardarEstado();
@@ -384,9 +398,9 @@ int main(int argc, char **argv) {
       mensajeProxy = proxy.reproducir();
       estadoUsuario.guardar(rutaEstado, motor.catalogo());
     }
-    ImGui::Checkbox("Suscripcion activa", &cuentaActiva);
+    ImGui::Checkbox("Suscripción activa", &cuentaActiva);
     ImGui::SameLine();
-    ImGui::Checkbox("Region permitida", &regionPermitida);
+    ImGui::Checkbox("Región permitida", &regionPermitida);
     if (!mensajeProxy.empty()) {
       const bool bloqueado = mensajeProxy.find("BLOQUEADO") != std::string::npos;
       ImGui::PushStyleColor(ImGuiCol_Text, bloqueado ? kRojo : kVerde);
@@ -409,7 +423,7 @@ int main(int argc, char **argv) {
       similares = motor.recomendador().similaresA(doc, 5);
       similaresDe = doc;
     }
-    ImGui::TextColored(kAzul, "PELICULAS SIMILARES");
+    ImGui::TextColored(kAzul, "PELÍCULAS SIMILARES");
     for (const auto &r : similares) {
       const auto &s = motor.catalogo()[r.doc];
       std::string etiqueta = s.titulo + " (" + std::to_string(s.anio) +
@@ -488,14 +502,14 @@ int main(int argc, char **argv) {
         const double s = std::chrono::duration<double>(
                              std::chrono::steady_clock::now() - inicioCarga)
                              .count();
-        ImGui::Text("Cargando catalogo y construyendo arboles... %.1f s", s);
-        ImGui::TextDisabled("La primera vez tarda unos segundos; despues se usa "
+        ImGui::Text("Cargando catálogo y construyendo árboles... %.1f s", s);
+        ImGui::TextDisabled("La primera vez tarda unos segundos; después se usa "
                             "el cache binario.");
       } else {
-        ImGui::TextColored(kRojo, "ERROR: no se encontro el CSV '%s'.",
+        ImGui::TextColored(kRojo, "ERROR: no se encontró el CSV '%s'.",
                            rutaCsv.c_str());
         ImGui::TextWrapped(
-            "Descargalo desde el enlace del README y guardalo como "
+            "Descárgalo desde el enlace del README y guárdalo como "
             "data/wiki_movie_plots_deduped.csv, o pasa la ruta como primer "
             "argumento:  streaming_gui ruta/al/archivo.csv");
       }
@@ -507,7 +521,7 @@ int main(int argc, char **argv) {
     // --- Cabecera + PATRON MEMENTO (Deshacer) --------------------------------
     ImGui::TextColored(kAzul, "UTEC STREAM");
     ImGui::SameLine();
-    ImGui::TextDisabled("| %zu peliculas | %zu palabras en el Trie | %u hilos",
+    ImGui::TextDisabled("| %zu películas | %zu palabras en el Trie | %u hilos",
                         motor.catalogo().tamano(),
                         motor.indice().vocabulario().numTerminos(),
                         pf::resolverHilos(0));
@@ -545,11 +559,11 @@ int main(int argc, char **argv) {
       // -----------------------------------------------------------------------
       if (ImGui::BeginTabItem("Inicio")) {
         dosPaneles("inicio", [&]() {
-          ImGui::TextColored(kAzul, "VER MAS TARDE (%zu)",
+          ImGui::TextColored(kAzul, "VER MÁS TARDE (%zu)",
                              estadoUsuario.verMasTarde().size());
           ImGui::Separator();
           if (estadoUsuario.verMasTarde().empty()) {
-            ImGui::TextDisabled("Vacio. Abre una pelicula y pulsa 'Ver mas tarde'.");
+            ImGui::TextDisabled("Vacío. Abre una película y pulsa 'Ver más tarde'.");
           }
           for (int doc : estadoUsuario.verMasTarde()) {
             const auto &p = motor.catalogo()[doc];
@@ -563,8 +577,8 @@ int main(int argc, char **argv) {
           ImGui::TextColored(kRosa, "RECOMENDADAS PARA TI");
           ImGui::Separator();
           if (estadoUsuario.meGusta().empty()) {
-            ImGui::TextDisabled("Dale Me gusta a alguna pelicula y aqui apareceran "
-                                "titulos parecidos.");
+            ImGui::TextDisabled("Dale Me gusta a alguna película y aquí aparecerán "
+                                "títulos parecidos.");
           } else {
             listaPaginada("recs", recomendaciones, paginaRecs, false);
           }
@@ -645,20 +659,20 @@ int main(int argc, char **argv) {
         ImGui::InputTextWithHint("##rep", "Reparto", bufReparto, sizeof(bufReparto));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(px(130));
-        ImGui::InputTextWithHint("##gen", "Genero", bufGenero, sizeof(bufGenero));
+        ImGui::InputTextWithHint("##gen", "Género", bufGenero, sizeof(bufGenero));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(px(130));
         ImGui::InputTextWithHint("##ori", "Origen", bufOrigen, sizeof(bufOrigen));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(px(90));
-        ImGui::InputInt("Anio exacto", &filtroAnio, 0);
+        ImGui::InputInt("Año exacto", &filtroAnio, 0);
         if (filtroAnio < 0) filtroAnio = 0;
 
         // Rango de anios con el ARBOL AVL
         // Dos deslizadores que nunca se cruzan: si "Desde" pasa a "Hasta" lo
         // empuja, y al reves. Al cambiar algo, la busqueda se actualiza sola.
         bool rangoCambio =
-            ImGui::Checkbox("Filtrar por rango de anios (Arbol AVL)", &usarRangoAvl);
+            ImGui::Checkbox("Filtrar por rango de años (Árbol AVL)", &usarRangoAvl);
         ImGui::SameLine();
         ImGui::BeginDisabled(!usarRangoAvl);
         ImGui::SetNextItemWidth(px(180));
@@ -704,7 +718,7 @@ int main(int argc, char **argv) {
             if (ImGui::Selectable(e.c_str(), docSeleccionado == doc)) seleccionar(doc);
           }
           ImGui::Spacing();
-          ImGui::TextColored(kAzul, "VER MAS TARDE (%zu)",
+          ImGui::TextColored(kAzul, "VER MÁS TARDE (%zu)",
                              estadoUsuario.verMasTarde().size());
           ImGui::Separator();
           for (int doc : estadoUsuario.verMasTarde()) {
@@ -714,7 +728,7 @@ int main(int argc, char **argv) {
             if (ImGui::Selectable(e.c_str(), docSeleccionado == doc)) seleccionar(doc);
           }
           ImGui::Spacing();
-          ImGui::TextColored(kVerde, "VISTAS VIA PROXY (%zu)",
+          ImGui::TextColored(kVerde, "VISTAS VÍA PROXY (%zu)",
                              estadoUsuario.vistas().size());
           ImGui::Separator();
           for (int doc : estadoUsuario.vistas()) {
@@ -732,10 +746,10 @@ int main(int argc, char **argv) {
       // -----------------------------------------------------------------------
       if (ImGui::BeginTabItem("Rendimiento paralelo")) {
         ImGui::TextWrapped(
-            "Compara 1 hilo contra %u hilos en: (1) la construccion del indice "
-            "(tokenizacion e insercion de strings en los Tries), (2) una "
+            "Compara 1 hilo contra %u hilos en: (1) la construcción del índice "
+            "(tokenización e inserción de strings en los Tries), (2) una "
             "consulta con re-ranking por frase y (3) un lote de 16 consultas. "
-            "Tambien verifica que los resultados sean identicos.",
+            "También verifica que los resultados sean idénticos.",
             pf::resolverHilos(0));
         ImGui::Spacing();
 
@@ -774,18 +788,18 @@ int main(int argc, char **argv) {
             ImGui::TableNextColumn();
             ImGui::Text("%.2fx", par > 0 ? sec / par : 0.0);
             ImGui::TableNextColumn();
-            ImGui::TextColored(igual ? kVerde : kRojo, igual ? "identicos" : "DISTINTOS");
+            ImGui::TextColored(igual ? kVerde : kRojo, igual ? "idénticos" : "DISTINTOS");
           };
           ImGui::Spacing();
           if (ImGui::BeginTable("bench", 5,
                                 ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
-            ImGui::TableSetupColumn("Operacion");
+            ImGui::TableSetupColumn("Operación");
             ImGui::TableSetupColumn("Secuencial");
             ImGui::TableSetupColumn("Paralelo");
             ImGui::TableSetupColumn("Speedup");
             ImGui::TableSetupColumn("Resultados");
             ImGui::TableHeadersRow();
-            fila("Construir indice (insercion)", b.msInsercionSecuencial,
+            fila("Construir índice (inserción)", b.msInsercionSecuencial,
                  b.msInsercionParalela, b.insercionIdentica, b.numHilos);
             fila("Una consulta (re-ranking frase)", b.msConsultaSecuencial,
                  b.msConsultaParalela, b.consultaIdentica, b.numHilos);
@@ -793,21 +807,21 @@ int main(int argc, char **argv) {
                  b.loteIdentico, b.numHilos);
             ImGui::EndTable();
           }
-          ImGui::TextDisabled("Terminos insertados en el TriePrefijos: %zu",
+          ImGui::TextDisabled("Términos insertados en el TriePrefijos: %zu",
                               b.terminosInsertados);
         }
 
         ImGui::Spacing();
         ImGui::Separator();
-        ImGui::TextColored(kAmarillo, "ARBOLES EN MEMORIA");
-        ImGui::Text("Trie de prefijos : %zu nodos (%zu densos) | %zu terminos",
+        ImGui::TextColored(kAmarillo, "ÁRBOLES EN MEMORIA");
+        ImGui::Text("Trie de prefijos : %zu nodos (%zu densos) | %zu términos",
                     motor.indice().vocabulario().numNodos(),
                     motor.indice().vocabulario().numNodosDensos(),
                     motor.indice().vocabulario().numTerminos());
         ImGui::Text("Trie de sufijos  : %zu nodos (%zu densos)",
                     motor.indice().sufijos().numNodos(),
                     motor.indice().sufijos().numNodosDensos());
-        ImGui::Text("Arbol AVL anios  : %zu nodos | altura %d",
+        ImGui::Text("Árbol AVL años  : %zu nodos | altura %d",
                     motor.arbolAnios().totalNodos(),
                     motor.arbolAnios().alturaTotal());
         ImGui::EndTabItem();

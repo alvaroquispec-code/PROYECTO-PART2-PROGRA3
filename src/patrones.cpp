@@ -122,10 +122,10 @@ ProxyPelicula::ProxyPelicula(const Pelicula &pelicula, int docId,
 
 std::string ProxyPelicula::reproducir() {
   if (!cuentaActiva_) {
-    return "[PROXY BLOQUEADO] Tu suscripcion no esta activa. Activa tu cuenta para reproducir.";
+    return "[PROXY BLOQUEADO] Tu suscripción no está activa. Activa tu cuenta para reproducir.";
   }
   if (!regionPermitida_) {
-    return "[PROXY BLOQUEADO] Contenido restringido en tu region geografica.";
+    return "[PROXY BLOQUEADO] Contenido restringido en tu región geográfica.";
   }
   estadoUsuario_.marcarVisto(docId_);
   return "[PROXY AUTORIZADO] " + peliculaReal_.reproducir();
