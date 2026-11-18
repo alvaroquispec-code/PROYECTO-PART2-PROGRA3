@@ -38,6 +38,8 @@
 namespace {
 
 constexpr int kPorPagina = 5; // el enunciado pide 5 resultados por pagina
+constexpr int kAnioMin = 1900; // rango de anios del dataset (1901-2017)
+constexpr int kAnioMax = 2017;
 
 // --- Tamano de la interfaz -------------------------------------------------
 // Tamano de la letra en pixeles logicos. Se multiplica por el escalado de la
@@ -286,6 +288,9 @@ int main(int argc, char **argv) {
                                                   : " resultados");
     } else if (!hayTexto && !usarRangoAvl) {
       mensajeBusqueda = q.mensaje;
+    } else if (usarRangoAvl) {
+      mensajeBusqueda = "Sin resultados entre " + std::to_string(rangoAvl[0]) +
+                        " y " + std::to_string(rangoAvl[1]) + ".";
     } else {
       mensajeBusqueda = "Sin resultados.";
     }
@@ -650,12 +655,27 @@ int main(int argc, char **argv) {
         if (filtroAnio < 0) filtroAnio = 0;
 
         // Rango de anios con el ARBOL AVL
-        ImGui::Checkbox("Filtrar por rango de anios (Arbol AVL)", &usarRangoAvl);
+        // Dos deslizadores que nunca se cruzan: si "Desde" pasa a "Hasta" lo
+        // empuja, y al reves. Al cambiar algo, la busqueda se actualiza sola.
+        bool rangoCambio =
+            ImGui::Checkbox("Filtrar por rango de anios (Arbol AVL)", &usarRangoAvl);
         ImGui::SameLine();
         ImGui::BeginDisabled(!usarRangoAvl);
-        ImGui::SetNextItemWidth(px(260));
-        ImGui::SliderInt2("##rango", rangoAvl, 1900, 2017);
+        ImGui::SetNextItemWidth(px(180));
+        if (ImGui::SliderInt("Desde", &rangoAvl[0], kAnioMin, kAnioMax)) {
+          rangoAvl[0] = std::clamp(rangoAvl[0], kAnioMin, kAnioMax);
+          if (rangoAvl[1] < rangoAvl[0]) rangoAvl[1] = rangoAvl[0];
+          rangoCambio = true;
+        }
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(px(180));
+        if (ImGui::SliderInt("Hasta", &rangoAvl[1], kAnioMin, kAnioMax)) {
+          rangoAvl[1] = std::clamp(rangoAvl[1], kAnioMin, kAnioMax);
+          if (rangoAvl[0] > rangoAvl[1]) rangoAvl[0] = rangoAvl[1];
+          rangoCambio = true;
+        }
         ImGui::EndDisabled();
+        if (rangoCambio) ejecutarBusqueda();
         ImGui::Separator();
 
         dosPaneles("buscar", [&]() {
